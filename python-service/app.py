@@ -19,7 +19,7 @@ index = None
 chunk_ids = []  # 存储chunk_id与索引位置的映射
 
 # 硅基流动配置（从环境变量读取）
-SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY", "your-api-key-here")
+SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 EMBEDDING_MODEL = "BAAI/bge-m3"
 DATA_DIR = "data"
@@ -29,6 +29,8 @@ CHUNK_IDS_PATH = os.path.join(DATA_DIR, "chunk_ids.json")
 
 def call_embedding_api(text):
     """调用硅基流动embedding接口"""
+    if not SILICONFLOW_API_KEY:
+        raise Exception("缺少 SILICONFLOW_API_KEY，请在 python-service/.env 或系统环境变量中配置")
     url = f"{SILICONFLOW_BASE_URL}/embeddings"
     headers = {
         "Authorization": f"Bearer {SILICONFLOW_API_KEY}",
