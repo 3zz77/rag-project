@@ -1,0 +1,53 @@
+spring:
+  config:
+    import: "optional:classpath:application-local.yml"
+  profiles:
+    active: siliconflow-embedding
+  application:
+    name: rag-qa-system
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/rag_qa_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.rag.qa_system.model
+  configuration:
+    map-underscore-to-camel-case: true  # 下划线转驼峰
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 打印SQL日志
+
+# 服务器配置
+server:
+  port: 8080
+
+# 自定义配置
+app:
+  upload-dir: d:/RAG/uploads
+
+rag:
+  retrieval:
+    top-k: 3
+
+zhipu:
+  api-key: ${ZHIPU_API_KEY:}
+  base-url: "https://open.bigmodel.cn/api/paas/v4"
+  chat-model: "GLM-4.7-Flash"
+
+siliconflow:
+  api-key: ${SILICONFLOW_API_KEY:}
+  base-url: "https://api.siliconflow.cn/v1"
+  embedding-model: "BAAI/bge-m3"
+
+python-vector:
+  base-url: "http://127.0.0.1:5000"
