@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/rag_qa_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${DB_PASSWORD:rag123456}
+
+python-vector:
+  base-url: "http://python-vector:5000"
+
+app:
+  upload-dir: /app/uploads

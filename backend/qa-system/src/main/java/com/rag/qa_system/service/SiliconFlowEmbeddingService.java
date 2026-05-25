@@ -16,7 +16,7 @@ import java.util.Map;
 @Profile("siliconflow-embedding")
 public class SiliconFlowEmbeddingService implements EmbeddingService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${siliconflow.api-key}")
@@ -27,6 +27,10 @@ public class SiliconFlowEmbeddingService implements EmbeddingService {
 
     @Value("${siliconflow.embedding-model}")
     private String embeddingModel;
+
+    public SiliconFlowEmbeddingService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @Override
     public List<Float> embed(String text) {

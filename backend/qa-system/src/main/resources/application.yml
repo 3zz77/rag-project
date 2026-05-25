@@ -8,7 +8,7 @@ spring:
   
   # 数据源配置
   datasource:
-    url: jdbc:mysql://localhost:3306/rag_qa_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    url: jdbc:mysql://localhost:3306/rag_qa_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -37,12 +37,12 @@ app:
 
 rag:
   retrieval:
-    top-k: 3
+    top-k: 5
 
-zhipu:
-  api-key: ${ZHIPU_API_KEY:}
-  base-url: "https://open.bigmodel.cn/api/paas/v4"
-  chat-model: "GLM-4.7-Flash"
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  base-url: "https://api.deepseek.com/v1"
+  chat-model: "deepseek-v4-flash"
 
 siliconflow:
   api-key: ${SILICONFLOW_API_KEY:}

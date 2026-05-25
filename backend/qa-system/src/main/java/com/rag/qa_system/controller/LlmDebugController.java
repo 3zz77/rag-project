@@ -1,6 +1,6 @@
 package com.rag.qa_system.controller;
 
-import com.rag.qa_system.service.ZhipuChatService;
+import com.rag.qa_system.service.DeepSeekChatService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -12,17 +12,17 @@ import java.util.Map;
 @Validated
 public class LlmDebugController {
 
-    private final ZhipuChatService zhipuChatService;
+    private final DeepSeekChatService deepSeekChatService;
 
-    public LlmDebugController(ZhipuChatService zhipuChatService) {
-        this.zhipuChatService = zhipuChatService;
+    public LlmDebugController(DeepSeekChatService deepSeekChatService) {
+        this.deepSeekChatService = deepSeekChatService;
     }
 
     @PostMapping("/chat")
     public Map<String, Object> chat(@RequestBody @Validated ChatRequest request) {
-        String answer = zhipuChatService.chat(request.message());
+        String answer = deepSeekChatService.chat(request.message());
         return Map.of(
-                "model", "zhipu-chat",
+                "model", "deepseek-chat",
                 "question", request.message(),
                 "answer", answer
         );

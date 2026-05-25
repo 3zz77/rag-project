@@ -44,6 +44,12 @@ public class DocumentController {
         return Map.of("id", id, "message", "文件上传并入库成功");
     }
 
+    @DeleteMapping("/{id}")
+    public Map<String, Object> delete(@PathVariable Long id) {
+        documentService.deleteDocument(id);
+        return Map.of("id", id, "message", "文档及索引已删除");
+    }
+
     public record CreateDocumentRequest(
             @NotBlank(message = "name不能为空") String name,
             @NotBlank(message = "type不能为空") String type,
