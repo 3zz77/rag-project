@@ -40,6 +40,7 @@ VECTOR_WEIGHT = 0.6
 BM25_WEIGHT = 0.4
 RETRIEVAL_K = 20
 FINAL_K = 5
+MIN_RELEVANCE_SCORE = 0.3  # rerank 相关性最低阈值，低于此分数的chunk视为不相关
 
 
 def call_embedding_api(text):
@@ -78,7 +79,7 @@ def call_embedding_api_batch(texts):
 
 
 def call_rerank_api(query, documents):
-    """调用硅基流动 rerank API 精排"""
+    """调用硅基流动 rerank API 精排，过滤低相关性 chunk"""
     if not SILICONFLOW_API_KEY or len(documents) == 0:
         return list(range(len(documents)))
 
@@ -91,15 +92,26 @@ def call_rerank_api(query, documents):
         "model": RERANK_MODEL,
         "query": query,
         "documents": documents,
-        "top_n": min(FINAL_K, len(documents))
+        "top_n": len(documents)  # 获取全部候选的分数，用于后续过滤
     }
     try:
         response = requests.post(url, json=data, headers=headers, timeout=30)
         if response.status_code != 200:
             logger.warning("Rerank API error, falling back to score fusion: %s", response.status_code)
             return None
-        result = response.json()
-        return [item["index"] for item in result.get("results", [])]
+        items = response.json().get("results", [])
+        # 按相关性分数过滤，只保留高于阈值的
+        qualified = [(it["index"], it.get("relevance_score", 0)) for it in items
+                     if it.get("relevance_score", 0) >= MIN_RELEVANCE_SCORE]
+        if not qualified:
+            logger.info("Rerank 后无 chunk 达到相关性阈值 %.2f，返回空结果", MIN_RELEVANCE_SCORE)
+            return []
+        qualified.sort(key=lambda x: x[1], reverse=True)
+        result = [idx for idx, _ in qualified[:FINAL_K]]
+        if len(result) < len(items):
+            logger.info("Rerank 过滤: %d/%d 个 chunk 达到相关性阈值, 最终保留 %d 个",
+                       len(qualified), len(items), len(result))
+        return result
     except Exception as e:
         logger.warning("Rerank failed, falling back to score fusion: %s", e)
         return None
@@ -416,8 +428,8 @@ def search():
 
         ranked = sorted(candidates.values(), key=lambda x: x["fused_score"], reverse=True)
 
-        # 4. Rerank (if enabled)
-        if use_rerank and len(ranked) > top_k:
+        # 4. Rerank (if enabled) — 按相关性分数过滤不相关chunk
+        if use_rerank and len(ranked) > 0:
             rerank_docs = [item["text"] for item in ranked]
             rerank_order = call_rerank_api(query_text, rerank_docs)
             if rerank_order is not None:

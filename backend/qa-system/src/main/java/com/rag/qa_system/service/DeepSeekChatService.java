@@ -58,7 +58,8 @@ public class DeepSeekChatService {
         Map<String, Object> body = Map.of(
                 "model", chatModel,
                 "messages", messages,
-                "temperature", 0.3
+                "temperature", 0.3,
+                "max_tokens", 2048
         );
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
@@ -91,6 +92,7 @@ public class DeepSeekChatService {
                         "model", chatModel,
                         "messages", messages,
                         "temperature", 0.3,
+                        "max_tokens", 2048,
                         "stream", true
                 );
 

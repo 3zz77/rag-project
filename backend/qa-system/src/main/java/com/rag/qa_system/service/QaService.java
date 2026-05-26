@@ -178,57 +178,33 @@ public class QaService {
 
     private String buildContext(List<RetrievalResult> topChunks) {
         if (topChunks.isEmpty()) {
-            return "未命中任何文档分块。";
+            return "未命中任何文档内容。";
         }
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < topChunks.size(); i++) {
             RetrievalResult item = topChunks.get(i);
-            builder.append("片段").append(i + 1)
-                    .append("（similarity=").append(String.format("%.4f", item.score())).append("）: ")
-                    .append(item.chunk().getContent());
-            if (i < topChunks.size() - 1) {
-                builder.append("\n---\n");
-            }
+            builder.append("---\n").append(item.chunk().getContent()).append("\n");
         }
         return builder.toString();
     }
 
     private static final String SYSTEM_PROMPT =
-            "你是一个专业的企业级 API 文档问答助手。你的回答必须严格基于提供的检索上下文，不得编造或使用外部知识。\n\n" +
-            "回答格式要求：\n" +
-            "1. 用纯文本回答，不要使用 Markdown 符号（不要用 ##、**、`、|表格| 等格式）\n" +
-            "2. 每个要点之间空一行，形成清晰的段落分隔\n" +
-            "3. 先给出一句话的核心结论，然后空一行再展开\n" +
-            "4. 列表项用数字编号或短横线开头，每项一行\n" +
-            "5. 涉及接口调用时，分行写出 Method、URL、请求参数、响应格式\n" +
-            "6. 技术术语保持英文，其余用简洁中文\n" +
-            "7. 如果上下文不足以回答问题，明确说「根据当前文档无法确定」\n" +
-            "8. 不要标注来源编号或片段编号\n\n" +
-            "输出示例：\n" +
-            "该接口用于获取用户的基本信息，需要先获取 access_token 才能调用。\n" +
-            "\n" +
-            "请求方式：GET\n" +
-            "接口地址：/api/user/info\n" +
-            "\n" +
-            "请求参数：\n" +
-            "- userId：字符串，必填，用户的唯一标识\n" +
-            "- fields：字符串，可选，指定返回的字段列表，多个用逗号分隔\n" +
-            "\n" +
-            "响应格式（JSON）：\n" +
-            "{\n" +
-            "  \"code\": 0,\n" +
-            "  \"data\": {\n" +
-            "    \"name\": \"张三\",\n" +
-            "    \"avatar\": \"https://example.com/avatar.jpg\"\n" +
-            "  }\n" +
-            "}\n" +
-            "\n" +
-            "注意事项：\n" +
-            "- access_token 有效期为 2 小时，过期需重新获取\n" +
-            "- 接口调用频率限制为每分钟 60 次";
+            "你是一个专业的技术文档问答助手。你的任务是基于提供的文档内容，用自己的话简洁准确地回答用户问题。\n\n" +
+            "核心原则（必须遵守）：\n" +
+            "1. 总结归纳，严禁大段复制原文。从文档中提取关键信息，用自己的语言重新组织后回答\n" +
+            "2. 只回答用户问的问题，不要输出与问题无关的文档内容，不要做多余的延伸\n" +
+            "3. 先给出一句话核心结论，再展开说明细节，保持简洁\n" +
+            "4. 如果文档内容有矛盾或不确定之处，明确指出\n" +
+            "5. 如果文档内容不足以回答问题，直接说「根据当前文档无法确定」，不要猜测\n\n" +
+            "输出格式：\n" +
+            "- 使用清晰简洁的中文，技术术语保持英文\n" +
+            "- 段落之间空一行，列表项用短横线开头\n" +
+            "- 涉及接口时列出 Method、URL、关键参数和响应字段即可，不需要完整 JSON 示例\n" +
+            "- 不要标注来源编号、片段编号或页码";
 
     private String buildRagPrompt(String question, String context) {
-        return "[检索上下文]\n" + context + "\n\n" +
-                "[用户问题]\n" + question;
+        return "以下是与用户问题相关的文档内容：\n\n" + context + "\n" +
+                "请根据以上文档内容回答用户问题。注意：提取与问题相关的信息，用自己的话总结归纳，不要直接复制大段原文。\n\n" +
+                "用户问题：" + question;
     }
 }

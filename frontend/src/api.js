@@ -44,7 +44,6 @@ export function askQuestionStream(question, callbacks) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let lastEvent = "";
       let finished = false;
 
       function finish() {
@@ -53,21 +52,34 @@ export function askQuestionStream(question, callbacks) {
         onDone?.();
       }
 
+      function dispatch(eventType, data) {
+        if (eventType === "context") onContext?.(data);
+        else if (eventType === "token") onToken?.(data);
+        else if (eventType === "done") finish();
+      }
+
       function processChunk(chunk) {
         buffer += chunk;
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        // SSE events are separated by blank lines (double newline)
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("event:")) {
-            lastEvent = trimmed.substring(6).trim();
-          } else if (trimmed.startsWith("data:")) {
-            const data = trimmed.substring(5).trim();
-            if (lastEvent === "context") onContext?.(data);
-            else if (lastEvent === "token") onToken?.(data);
-            else if (lastEvent === "done") finish();
-            lastEvent = "";
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          const lines = part.split("\n");
+          let eventType = "";
+          const dataLines = [];
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventType = line.substring(6).trim();
+            } else if (line.startsWith("data:")) {
+              dataLines.push(line.substring(5));
+            }
+          }
+
+          if (eventType && dataLines.length > 0) {
+            dispatch(eventType, dataLines.join("\n"));
           }
         }
       }
@@ -77,7 +89,22 @@ export function askQuestionStream(question, callbacks) {
           .read()
           .then(({ done, value }) => {
             if (done) {
-              processChunk("");
+              if (buffer.trim()) {
+                // Process remaining incomplete event
+                const lines = buffer.split("\n");
+                let eventType = "";
+                const dataLines = [];
+                for (const line of lines) {
+                  if (line.startsWith("event:")) {
+                    eventType = line.substring(6).trim();
+                  } else if (line.startsWith("data:")) {
+                    dataLines.push(line.substring(5));
+                  }
+                }
+                if (eventType && dataLines.length > 0) {
+                  dispatch(eventType, dataLines.join("\n"));
+                }
+              }
               finish();
               return;
             }
