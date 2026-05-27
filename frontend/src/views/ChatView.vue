@@ -96,6 +96,7 @@
           v-for="h in historyList"
           :key="h.id"
           class="history-item"
+          @click="showHistoryDetail(h)"
         >
           <div class="history-question">{{ h.question }}</div>
           <div class="history-meta">{{ h.model }} · {{ formatTime(h.createTime) }}</div>
@@ -103,6 +104,30 @@
         <el-empty v-if="historyList.length === 0" description="暂无历史" :image-size="60" />
       </div>
     </div>
+
+    <el-dialog
+      v-model="historyDialogVisible"
+      :title="historyDialogTitle"
+      width="680px"
+      top="5vh"
+      destroy-on-close
+    >
+      <div class="history-detail-question">
+        <span class="detail-label">问题</span>
+        <p>{{ selectedHistory?.question }}</p>
+      </div>
+      <div class="history-detail-answer">
+        <span class="detail-label">回答</span>
+        <div class="message-content" v-html="renderContent(selectedHistory?.answer || '')"></div>
+      </div>
+      <div v-if="selectedHistory?.context" class="history-detail-context">
+        <el-collapse>
+          <el-collapse-item title="查看检索来源">
+            <pre>{{ selectedHistory?.context }}</pre>
+          </el-collapse-item>
+        </el-collapse>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -119,6 +144,9 @@ const input = ref("");
 const streaming = ref(false);
 const streamingText = ref("");
 const messagesContainer = ref(null);
+const historyDialogVisible = ref(false);
+const selectedHistory = ref(null);
+const historyDialogTitle = ref("");
 
 const suggestions = [
   "如何进行接口认证？",
@@ -184,6 +212,12 @@ async function loadHistory() {
   } catch (e) {
     // silent fail for history
   }
+}
+
+function showHistoryDetail(h) {
+  selectedHistory.value = h;
+  historyDialogTitle.value = h.question.length > 30 ? h.question.substring(0, 30) + "..." : h.question;
+  historyDialogVisible.value = true;
 }
 
 function scrollToBottom() {

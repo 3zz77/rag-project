@@ -44,7 +44,7 @@ application-prod.yml
 
 # 数据文件
 uploads/
-data/faiss_index/
+python-service/data/
 *.db
 *.sqlite
 *.sql
@@ -56,11 +56,12 @@ data/faiss_index/
 logs/
 *.log
 
-# 文档
-*.md
-
 # IDE
 .vscode/
 *.swp
 *.swo
 *~
+
+# 非代码文档
+*.md
+!CLAUDE.md
