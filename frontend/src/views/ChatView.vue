@@ -1,6 +1,14 @@
 <template>
   <div class="chat-view">
     <div class="chat-main">
+      <!-- 多轮对话工具栏 -->
+      <div class="chat-toolbar" v-if="messages.length > 0">
+        <span></span>
+        <el-button text size="small" type="primary" @click="newConversation">
+          <el-icon><Plus /></el-icon> 新对话
+        </el-button>
+      </div>
+
       <div class="chat-messages" ref="messagesContainer">
         <div v-if="messages.length === 0" class="chat-empty">
           <div class="empty-icon">
@@ -54,6 +62,10 @@
           </div>
           <div class="message-body">
             <div class="message-role">AI 助手 <span class="typing-dot">●</span></div>
+            <div v-if="rewrittenQueryText" class="rewritten-query-hint">
+              <el-icon :size="14"><Search /></el-icon>
+              检索词：{{ rewrittenQueryText }}
+            </div>
             <div class="message-content" v-html="renderContent(streamingText)"></div>
           </div>
         </div>
@@ -103,6 +115,17 @@
         </div>
         <el-empty v-if="historyList.length === 0" description="暂无历史" :image-size="60" />
       </div>
+      <!-- 历史分页 -->
+      <div class="history-pagination" v-if="historyTotal > historyPageSize">
+        <el-pagination
+          small
+          layout="prev, next"
+          :page-size="historyPageSize"
+          :total="historyTotal"
+          :current-page="historyPage"
+          @current-change="onHistoryPageChange"
+        />
+      </div>
     </div>
 
     <el-dialog
@@ -133,7 +156,7 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from "vue";
-import { ChatDotRound, UserFilled, Promotion, Refresh } from "@element-plus/icons-vue";
+import { ChatDotRound, UserFilled, Promotion, Refresh, Plus, Search } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { marked } from "marked";
 import { askQuestionStream, getHistory } from "../api";
@@ -143,10 +166,17 @@ const historyList = ref([]);
 const input = ref("");
 const streaming = ref(false);
 const streamingText = ref("");
+const rewrittenQueryText = ref("");
 const messagesContainer = ref(null);
 const historyDialogVisible = ref(false);
 const selectedHistory = ref(null);
 const historyDialogTitle = ref("");
+const conversationId = ref(generateId());
+
+// 分页状态
+const historyPage = ref(1);
+const historyPageSize = 10;
+const historyTotal = ref(0);
 
 const suggestions = [
   "如何进行接口认证？",
@@ -154,6 +184,16 @@ const suggestions = [
   "请求频率限制是多少？",
   "如何发起 POST 请求？",
 ];
+
+function generateId() {
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
+function newConversation() {
+  conversationId.value = generateId();
+  messages.value = [];
+  ElMessage.success("已开启新对话");
+}
 
 function quickAsk(q) {
   input.value = q;
@@ -172,11 +212,20 @@ async function handleSend() {
   input.value = "";
   streaming.value = true;
   streamingText.value = "";
+  rewrittenQueryText.value = "";
 
   let contextData = "";
   let answerText = "";
 
   askQuestionStream(question, {
+    onConversationId(cid) {
+      if (cid && cid !== conversationId.value) {
+        conversationId.value = cid;
+      }
+    },
+    onRewrittenQuery(q) {
+      rewrittenQueryText.value = q;
+    },
     onContext(data) {
       contextData = data;
     },
@@ -203,15 +252,22 @@ async function handleSend() {
       streaming.value = false;
       streamingText.value = "";
     },
-  });
+  }, conversationId.value);
 }
 
 async function loadHistory() {
   try {
-    historyList.value = await getHistory(10);
+    const result = await getHistory(historyPage.value, historyPageSize);
+    historyList.value = result.list || [];
+    historyTotal.value = result.total || 0;
   } catch (e) {
     // silent fail for history
   }
+}
+
+function onHistoryPageChange(page) {
+  historyPage.value = page;
+  loadHistory();
 }
 
 function showHistoryDetail(h) {
@@ -232,7 +288,6 @@ marked.setOptions({
 
 function renderContent(text) {
   if (!text) return "";
-  // 规范化换行：3个以上换行压缩为2个，保证段落清晰
   text = text.replace(/\n{3,}/g, '\n\n');
   return marked.parse(text);
 }
@@ -245,3 +300,33 @@ function formatTime(time) {
 
 onMounted(loadHistory);
 </script>
+
+<style scoped>
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+}
+.rewritten-query-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.history-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+</style>

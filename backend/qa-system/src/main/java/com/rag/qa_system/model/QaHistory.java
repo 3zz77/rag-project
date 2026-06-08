@@ -13,5 +13,6 @@ public class QaHistory {
     private String answer;
     private String context;
     private String model;
+    private String conversationId;
     private LocalDateTime createTime;
 }

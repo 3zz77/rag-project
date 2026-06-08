@@ -1,0 +1,210 @@
+{
+  "test_suite": "CloudPay API RAG 评测集 v3",
+  "description": "每条题包含：问题 + 标准答案 + 目标块唯一文本片段(用于精确验证检索是否命中正确的块)",
+  "metric_explanation": {
+    "chunk_recall": "目标块片段在检索上下文中的命中率 — 这是真正的检索召回率。反映'包含答案的那个块是否被检索到了'",
+    "answer_accuracy": "生成答案与标准答案的语义相似度 — 反映'LLM生成的答案是否正确'",
+    "precision": "检索结果中，有多少块真正与问题相关（命中了目标片段）— 反映'检索结果是否干净'"
+  },
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "CloudPay 支持哪些支付方式？",
+      "category": "简单事实检索",
+      "ground_truth": "CloudPay 支持微信支付、支付宝、银联云闪付、国际信用卡（Visa/Mastercard/Amex/JCB）、Apple Pay、Google Pay、余额支付和银行转账共8种支付方式。",
+      "target_snippets": [
+        "wechat_pay | 微信支付 | 微信公众号、小程序、H5、APP、扫码",
+        "alipay | 支付宝 | 手机网站、APP、扫码、小程序"
+      ]
+    },
+    {
+      "id": "Q02",
+      "question": "如何在请求中进行签名认证？",
+      "category": "流程步骤问答",
+      "ground_truth": "使用 API Key 认证：在请求头中携带 X-Api-Key、X-Timestamp、X-Nonce 和 X-Signature。签名字符串为 api_key + timestamp + nonce + request_body，使用 HMAC-SHA256 以 api_secret 为密钥计算后 Base64 编码。",
+      "target_snippets": [
+        "sign_string = api_key + timestamp + nonce + request_body",
+        "signature = Base64(HMAC-SHA256(api_secret, sign_string))"
+      ]
+    },
+    {
+      "id": "Q03",
+      "question": "支付完成后，如果商户没有正确响应通知，CloudPay 会重试多少次？间隔分别是多少？",
+      "category": "细节参数查询",
+      "ground_truth": "CloudPay 共重试6次，间隔分别为：第1次15秒、第2次1分钟、第3次5分钟、第4次15分钟、第5次1小时、第6次6小时。商户返回 HTTP 200 且 body 为 {\"code\":0} 视为成功。",
+      "target_snippets": [
+        "第 1 次 | 15 秒",
+        "第 6 次 | 6 小时"
+      ]
+    },
+    {
+      "id": "Q04",
+      "question": "退款是否支持部分退款？有哪些限制条件？",
+      "category": "跨块推理",
+      "ground_truth": "支持部分退款，允许多次退款但累计金额不超过原支付金额。每次退款前应查询 refundable_amount。微信支付和支付宝退款有效期1年，银联和国际信用卡有效期180天。",
+      "target_snippets": [
+        "退款支持部分退款，允许多次部分退款但累计金额不超过原支付金额",
+        "每次退款前应查询 refundable_amount 确认可退金额"
+      ]
+    },
+    {
+      "id": "Q05",
+      "question": "OAuth 2.0 认证如何获取 access_token？有效期多久？",
+      "category": "流程步骤问答",
+      "ground_truth": "通过 POST /v3/oauth/token 接口，传入 grant_type=client_credentials、client_id 和 client_secret 换取 access_token。有效期为 7200 秒（2小时），建议提前5分钟刷新。",
+      "target_snippets": [
+        "POST /v3/oauth/token",
+        "grant_type\": \"client_credentials\"",
+        "expires_in\": 7200"
+      ]
+    },
+    {
+      "id": "Q06",
+      "question": "API 返回错误码 30001 和 30002 分别代表什么？",
+      "category": "错误处理",
+      "ground_truth": "30001 表示支付金额超过限额（单笔限额 5000000 分=5万元）；30002 表示风控拦截，需要联系风控团队申诉。",
+      "target_snippets": [
+        "30001 | 支付金额超过限额 | 单笔限额 5000000（5万元）",
+        "30002 | 风控拦截 | 联系风控团队申诉"
+      ]
+    },
+    {
+      "id": "Q07",
+      "question": "沙箱环境如何模拟不同支付结果？",
+      "category": "细节参数查询",
+      "ground_truth": "金额为1分的支付自动成功，2分自动失败，3分触发风控。也可在 attach 字段传 status=<状态码> 强制指定返回状态。",
+      "target_snippets": [
+        "模拟成功支付：金额为 1 分（0.01 元）的支付自动成功",
+        "模拟失败支付：金额为 2 分（0.02 元）的支付自动失败"
+      ]
+    },
+    {
+      "id": "Q08",
+      "question": "创建支付订单时 expire_time 参数有什么用？超时前如何延长？",
+      "category": "参数理解",
+      "ground_truth": "expire_time 是订单过期时间，默认3600秒（1小时），超时后订单自动关闭。如需延长，在75%过期时间前调用订单查询接口，系统自动顺延30分钟。",
+      "target_snippets": [
+        "expire_time | int | 否 | 订单过期秒数，默认 3600（1小时）",
+        "在 75% 过期时间前调用订单查询接口（会顺延 30 分钟）"
+      ]
+    },
+    {
+      "id": "Q09",
+      "question": "如何验证 Webhook 回调的签名？",
+      "category": "流程步骤问答",
+      "ground_truth": "从 X-CloudPay-Signature 头取出 timestamp 和 signature，构造原文 timestamp + . + webhook_body_raw，用 HMAC-SHA256(webhook_secret, sign_string) 计算并 Base64 编码，与请求头签名做恒等比较（防时序攻击）。",
+      "target_snippets": [
+        "X-CloudPay-Signature: t=1705312800,v1=HMAC-SHA256(base64)",
+        "与 Header 中的签名做恒等比较（非字符串比较，防时序攻击）"
+      ]
+    },
+    {
+      "id": "Q10",
+      "question": "子商户入驻需要提交哪些信息？企业和个人的要求有什么不同？",
+      "category": "跨块推理",
+      "ground_truth": "需提交：商户名称、简称、经营类型（individual/enterprise）、联系人姓名/手机/邮箱、结算方式（T1/D0）。企业类型还需营业执照号和法人姓名。",
+      "target_snippets": [
+        "business_type | string | 是 | 经营类型：individual（个人）、enterprise（企业）",
+        "business_license | string | 企业必填 | 营业执照号"
+      ]
+    },
+    {
+      "id": "Q11",
+      "question": "CloudPay 提供哪些服务端 SDK？通过什么包管理器安装？",
+      "category": "简单事实检索",
+      "ground_truth": "Java(Maven: com.cloudpay:cloudpay-sdk:3.2.1)、Python(pip: cloudpay-sdk>=3.2.0)、PHP(Composer: cloudpay/cloudpay-sdk:^3.2)、Go(go get: github.com/cloudpay/cloudpay-go/v3)、Node.js(npm: cloudpay-sdk@^3.2.0)。",
+      "target_snippets": [
+        "Java | JDK 8+ | Maven: `com.cloudpay:cloudpay-sdk:3.2.1`",
+        "Python | 3.8+ | pip: `cloudpay-sdk>=3.2.0`"
+      ]
+    },
+    {
+      "id": "Q12",
+      "question": "不同支付方式的退款到账时间和退款有效期有什么区别？",
+      "category": "对比分析",
+      "ground_truth": "微信支付1-3个工作日到账/有效期1年，支付宝即时到账/有效期1年，银联1-5个工作日/180天，国际信用卡3-15个工作日/180天，余额支付即时到账/无限制。",
+      "target_snippets": [
+        "微信支付 | 1-3 个工作日 | 1 年",
+        "国际信用卡 | 3-15 个工作日 | 180 天"
+      ]
+    },
+    {
+      "id": "Q13",
+      "question": "订单列表查询接口支持哪些筛选条件和分页参数？",
+      "category": "参数查询",
+      "ground_truth": "GET /v3/orders 支持 start_date、end_date（时间范围）、status（状态）、pay_type（支付方式）筛选。分页参数 page（默认1）和 page_size（默认20，最大100）。",
+      "target_snippets": [
+        "GET /v3/orders",
+        "start_date | string | 否 | 开始日期（ISO 8601）| end_date | string | 否 | 结束日期"
+      ]
+    },
+    {
+      "id": "Q14",
+      "question": "CloudPay API 有哪些安全措施？",
+      "category": "综合理解",
+      "ground_truth": "安全措施包括：密钥每90天轮换、IP白名单、HTTPS/TLS 1.2+强制、AES-256-GCM加密敏感数据、日志自动脱敏、审计追踪保留180天、证书锁定防中间人攻击、timestamp防重放（5分钟偏差拒绝）。",
+      "target_snippets": [
+        "密钥轮换：每 90 天更换一次 api_secret，支持双密钥平滑切换",
+        "敏感信息加密：使用 AES-256-GCM 对持卡人数据"
+      ]
+    },
+    {
+      "id": "Q15",
+      "question": "商户账户余额分为哪几类？各代表什么含义？",
+      "category": "概念理解",
+      "ground_truth": "available_balance（可用余额，可提现）、pending_balance（待结算余额，T+1）、frozen_balance（冻结余额，争议订单）、total_balance（总余额）。",
+      "target_snippets": [
+        "available_balance | 可用余额（可提现）",
+        "frozen_balance | 冻结余额（争议订单）"
+      ]
+    },
+    {
+      "id": "Q16",
+      "question": "CloudPay 收银台页面有哪些功能和自定义选项？",
+      "category": "功能总结",
+      "ground_truth": "收银台通过 https://cashier.cloudpay.com/pay?token=<TOKEN> 访问，支持自适应PC/移动端、30+语言、150+货币、自动检测环境。可自定义主题色（theme_color）和Logo（logo_url）。",
+      "target_snippets": [
+        "https://cashier.cloudpay.com/pay?token=<PAY_TOKEN>",
+        "主题色可自定义（?theme_color=#FF6600）| Logo 可自定义（?logo_url=https://merchant.com/logo.png）"
+      ]
+    },
+    {
+      "id": "Q17",
+      "question": "API 请求如何保证幂等性？",
+      "category": "概念理解",
+      "ground_truth": "通过请求头 Idempotency-Key 保证。同一 Key 在15天内重复请求返回相同结果，不会重复创建资源。",
+      "target_snippets": [
+        "幂等性：通过请求头 Idempotency-Key 保证，同一 Key 15 天内重复请求返回相同结果"
+      ]
+    },
+    {
+      "id": "Q18",
+      "question": "风控引擎支持配置哪些规则？触发后如何处理？",
+      "category": "简单事实检索",
+      "ground_truth": "支持6种规则：amount_limit（单笔上限）、daily_limit（日累计上限）、ip_whitelist（IP白名单）、geo_block（地区限制）、velocity_check（频次检查）、card_bin_check（卡BIN校验）。触发时推送 risk.alert 事件并邮件短信通知。",
+      "target_snippets": [
+        "amount_limit | 单笔金额上限 | max_amount（分）",
+        "触发风控规则时，系统自动向 Webhook 推送 risk.alert 事件"
+      ]
+    },
+    {
+      "id": "Q19",
+      "question": "从沙箱环境切换到生产环境需要做哪些变更？",
+      "category": "实践操作",
+      "ground_truth": "将 base URL 从 https://sandbox.cloudpay.com/v3 改为 https://api.cloudpay.com/v3，使用环境变量管理。还需配置 IP 白名单、使用真实 API Key、启用所有安全措施。",
+      "target_snippets": [
+        "沙箱环境 | https://sandbox.cloudpay.com/v3 | 开发调试",
+        "生产环境 | https://api.cloudpay.com/v3 | 正式交易"
+      ]
+    },
+    {
+      "id": "Q20",
+      "question": "CloudPay 为什么使用分作为金额单位？",
+      "category": "概念理解",
+      "ground_truth": "使用分（整数）避免浮点运算的精度问题。100 代表 1.00 元，确保金额计算准确。",
+      "target_snippets": [
+        "金额单位：分（整数），100 = 1.00 元，避免浮点精度问题"
+      ]
+    }
+  ]
+}

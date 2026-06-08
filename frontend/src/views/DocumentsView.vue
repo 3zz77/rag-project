@@ -54,7 +54,7 @@
       <el-col :xs="24" :md="14">
         <div class="doc-list-card">
           <div class="doc-list-header">
-            <h4>已上传文档 ({{ documents.length }})</h4>
+            <h4>已上传文档 ({{ totalDocuments }})</h4>
             <el-button text @click="loadDocuments">
               <el-icon><Refresh /></el-icon> 刷新
             </el-button>
@@ -98,6 +98,17 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- 分页 -->
+          <div class="doc-pagination" v-if="totalDocuments > pageSize">
+            <el-pagination
+              v-model:current-page="currentPage"
+              :page-size="pageSize"
+              :total="totalDocuments"
+              layout="total, prev, pager, next"
+              @current-change="onPageChange"
+            />
+          </div>
         </div>
       </el-col>
     </el-row>
@@ -116,6 +127,11 @@ const uploading = ref(false);
 const selectedFile = ref(null);
 const selectedFileName = ref("");
 const uploadResult = ref("");
+
+// 分页
+const currentPage = ref(1);
+const pageSize = 10;
+const totalDocuments = ref(0);
 
 function onFileChange(file) {
   if (!file?.raw) return;
@@ -136,9 +152,10 @@ async function handleUpload() {
     ElMessage.success("上传成功，文档已开始处理");
     selectedFile.value = null;
     selectedFileName.value = "";
+    currentPage.value = 1;
     await loadDocuments();
   } catch (e) {
-    const msg = e?.response?.data?.detail || e.message || "上传失败";
+    const msg = e?.message || "上传失败";
     ElMessage.error(msg);
   } finally {
     uploading.value = false;
@@ -148,12 +165,19 @@ async function handleUpload() {
 async function loadDocuments() {
   try {
     loading.value = true;
-    documents.value = await getDocuments();
+    const result = await getDocuments(currentPage.value, pageSize);
+    documents.value = result.list || [];
+    totalDocuments.value = result.total || 0;
   } catch (e) {
     ElMessage.error("加载文档列表失败");
   } finally {
     loading.value = false;
   }
+}
+
+function onPageChange(page) {
+  currentPage.value = page;
+  loadDocuments();
 }
 
 async function handleDelete(id) {
@@ -180,3 +204,12 @@ function formatSize(bytes) {
 
 onMounted(loadDocuments);
 </script>
+
+<style scoped>
+.doc-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+  padding-top: 12px;
+}
+</style>

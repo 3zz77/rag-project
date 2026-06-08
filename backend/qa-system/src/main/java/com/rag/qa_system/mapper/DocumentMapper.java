@@ -11,10 +11,10 @@ import java.util.List;
 public interface DocumentMapper {
 
     /**
-     * 查询所有文档
+     * 分页查询所有文档
      */
-    @Select("SELECT * FROM documents ORDER BY upload_time DESC")
-    List<Document> findAll();
+    @Select("SELECT * FROM documents ORDER BY upload_time DESC LIMIT #{offset}, #{limit}")
+    List<Document> findAllWithPage(@Param("offset") int offset, @Param("limit") int limit);
 
     /**
      * 根据ID查询文档
@@ -46,5 +46,5 @@ public interface DocumentMapper {
      * 统计文档数量
      */
     @Select("SELECT COUNT(*) FROM documents")
-    int count();
+    long count();
 }

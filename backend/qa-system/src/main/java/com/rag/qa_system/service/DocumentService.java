@@ -4,6 +4,7 @@ import com.rag.qa_system.mapper.DocumentChunkMapper;
 import com.rag.qa_system.mapper.DocumentMapper;
 import com.rag.qa_system.model.Document;
 import com.rag.qa_system.model.DocumentChunk;
+import com.rag.qa_system.model.PageResult;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -53,8 +54,11 @@ public class DocumentService {
         this.pythonVectorClient = pythonVectorClient;
     }
 
-    public List<Document> listDocuments() {
-        return documentMapper.findAll();
+    public PageResult<Document> listDocuments(int page, int pageSize) {
+        int offset = (page - 1) * pageSize;
+        List<Document> list = documentMapper.findAllWithPage(offset, pageSize);
+        long total = documentMapper.count();
+        return new PageResult<>(list, total, page, pageSize);
     }
 
     public Document getDocumentById(Long id) {
@@ -98,7 +102,7 @@ public class DocumentService {
 
         String extension = getExtension(originalName).toLowerCase();
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new IllegalArgumentException("仅支持 PDF/TXT/MD 文件");
+            throw new IllegalArgumentException("仅支持 PDF/TXT/MD/DOC/DOCX 文件");
         }
 
         byte[] header = new byte[4];
@@ -198,7 +202,6 @@ public class DocumentService {
         if (!extension.equals("pdf") && isPdfHeader) {
             throw new IllegalArgumentException("文件内容为 PDF，但扩展名不匹配，请使用 .pdf 后缀");
         }
-        // doc/docx: check magic numbers
         boolean isDocHeader = header.length >= 4
                 && header[0] == DOC_MAGIC[0] && header[1] == DOC_MAGIC[1]
                 && header[2] == DOC_MAGIC[2] && header[3] == DOC_MAGIC[3];
@@ -212,7 +215,6 @@ public class DocumentService {
         if (extension.equals("docx") && !isDocxHeader) {
             throw new IllegalArgumentException("文件扩展名为 .docx 但内容不是有效的 Word 文档");
         }
-        // txt/md: reject binary content
         if ((extension.equals("txt") || extension.equals("md")) && isBinaryHeader(header)) {
             throw new IllegalArgumentException("文本文件包含二进制数据，请确认文件格式");
         }
@@ -278,7 +280,6 @@ public class DocumentService {
             throw new IllegalArgumentException("overlap 必须小于 chunkSize");
         }
 
-        // Split by paragraphs first
         String[] paragraphs = text.split("\\n\\s*\\n");
         List<String> segments = new ArrayList<>();
         for (String para : paragraphs) {
@@ -286,11 +287,9 @@ public class DocumentService {
             if (trimmed.isBlank()) {
                 continue;
             }
-            // Keep code blocks intact
             if (trimmed.contains("```")) {
                 segments.add(trimmed);
             } else if (trimmed.length() > chunkSize) {
-                // Split large paragraphs by sentence boundaries
                 String[] sentences = trimmed.split("(?<=[。！？.!?])\\s*");
                 StringBuilder buf = new StringBuilder();
                 for (String sentence : sentences) {
@@ -315,12 +314,10 @@ public class DocumentService {
             }
         }
 
-        // Merge small segments with overlap
         StringBuilder current = new StringBuilder();
         for (String seg : segments) {
             if (current.length() + seg.length() > chunkSize && current.length() >= MIN_CHUNK_SIZE) {
                 result.add(current.toString().trim());
-                // Keep overlap: retain last `overlap` chars from previous chunk
                 String prev = current.toString();
                 int overlapStart = Math.max(0, prev.length() - overlap);
                 current.setLength(0);
