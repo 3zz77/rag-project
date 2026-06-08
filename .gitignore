@@ -64,6 +64,5 @@ logs/
 
 # 非代码文档
 *.md
-!CLAUDE.md
 !README.md
 !eval/**/*.md
